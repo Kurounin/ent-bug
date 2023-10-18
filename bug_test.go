@@ -2,7 +2,10 @@ package bug
 
 import (
 	"context"
+	"entgo.io/bug/ent/user"
+	"entgo.io/ent/dialect/sql"
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"net"
 	"strconv"
 	"testing"
@@ -58,7 +61,20 @@ func test(t *testing.T, client *ent.Client) {
 	ctx := context.Background()
 	client.User.Delete().ExecX(ctx)
 	client.User.Create().SetName("Ariel").SetAge(30).ExecX(ctx)
-	if n := client.User.Query().CountX(ctx); n != 1 {
+	client.User.Create().SetName("Simba").SetAge(35).ExecX(ctx)
+	client.User.Create().SetName("Pumba").SetAge(25).ExecX(ctx)
+	if n := client.User.Query().CountX(ctx); n != 3 {
 		t.Errorf("unexpected number of users: %d", n)
 	}
+	count := client.Debug().User.Query().Where(
+		user.And(
+			user.AgeGTE(30),
+			func(s *sql.Selector) {
+				s.Where(sql.EQ("name", "Ariel"))
+				s.Or()
+				s.Where(sql.EQ("name", "Simba"))
+			},
+		),
+	).CountX(ctx)
+	assert.Equal(t, 2, count)
 }
